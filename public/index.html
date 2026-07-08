@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SurveilFall — MTG Card Search</title>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/card.css" />
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-inner">
+            <a href="/" class="logo">SurveilFall</a>
+            <form id="search-form" class="search-bar" action="/search" method="get">
+                <input
+                    type="text"
+                    name="q"
+                    id="search-input"
+                    placeholder="Search for Magic cards…"
+                    autocomplete="off"
+                    spellcheck="false"
+                />
+                <button type="submit">Find Cards</button>
+            </form>
+            <nav class="header-nav" style="display:none">
+                <a href="/advanced">Advanced</a>
+                <a href="/docs/syntax">Syntax</a>
+                <a href="/sets">Sets</a>
+                <a href="/random">Random</a>
+            </nav>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <div id="results-header" class="results-header hidden">
+            <span id="result-count"></span>
+            <div class="results-controls">
+                <label>
+                    Sort:
+                    <select id="sort-select">
+                        <option value="name">Name</option>
+                        <option value="cmc">CMC</option>
+                        <option value="power">Power</option>
+                        <option value="toughness">Toughness</option>
+                    </select>
+                </label>
+                <div class="view-toggle">
+                    <button id="view-grid" class="active" title="Grid view">▦</button>
+                    <button id="view-list" title="List view">☰</button>
+                </div>
+            </div>
+        </div>
+        <div id="card-grid" class="card-grid"></div>
+        <div id="loading" class="loading hidden">Searching…</div>
+        <div id="no-results" class="no-results hidden">
+            <h2>No cards found.</h2>
+            <p>Try adjusting your search query.</p>
+        </div>
+
+        <!-- Card detail view (hidden by default, shown when viewing a single card) -->
+        <div id="card-detail" class="card-detail hidden">
+            <div id="card-loading" class="loading">Loading card…</div>
+            <div id="card-content" class="card-content hidden"></div>
+            <div id="card-not-found" class="no-results hidden">
+                <h2>Card not found.</h2>
+                <p><a href="/">Return to search</a></p>
+            </div>
+        </div>
+    </main>
+
+    <!-- List panel -->
+    <aside id="list-panel" class="list-panel">
+        <div class="list-panel-header">
+            <h3>Card List</h3>
+            <span id="list-count" class="list-count">0</span>
+            <button id="list-toggle" class="list-toggle-btn" title="Toggle list">▼</button>
+        </div>
+        <div id="list-body" class="list-body hidden">
+            <div id="list-entries" class="list-entries"></div>
+            <div class="list-actions">
+                <button id="list-export-btn" class="list-action-btn">Export</button>
+                <button id="list-clear-btn" class="list-action-btn danger">Clear</button>
+            </div>
+            <textarea id="list-export-text" class="list-export-text hidden" readonly></textarea>
+        </div>
+    </aside>
+
+    <footer class="site-footer">
+        <p>SurveilFall — Unofficial MTG card search. Data sourced from Scryfall.<span id="data-updated"></span></p>
+    </footer>
+
+    <script src="/autocomplete.js"></script>
+    <script src="/list.js"></script>
+    <script src="/app.js"></script>
+    <script>
+        // Card data embedded by the server when viewing a single card detail page
+        var CARD_DATA = null;
+        var PRINTS_DATA = null;
+    </script>
+    <script src="/card.js"></script>
+    <script>
+        // Show when the card data was last imported, in the footer.
+        (function () {
+            fetch("/meta")
+                .then(function (r) { return r.json(); })
+                .then(function (m) {
+                    if (!m || !m.cards_updated_at) return;
+                    var d = new Date(m.cards_updated_at);
+                    if (isNaN(d.getTime())) return;
+                    var when = d.toLocaleString(undefined, {
+                        year: "numeric", month: "short", day: "numeric",
+                        hour: "numeric", minute: "2-digit",
+                    });
+                    document.getElementById("data-updated").textContent = " Last updated " + when + ".";
+                })
+                .catch(function () { /* leave footer as-is if unavailable */ });
+        })();
+    </script>
+</body>
+</html>

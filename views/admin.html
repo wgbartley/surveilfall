@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SurveilFall — Admin</title>
+    <link rel="stylesheet" href="/style.css" />
+    <style>
+        .admin-page {
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 0 24px;
+        }
+        .admin-page h1 {
+            color: #f0c040;
+            margin-bottom: 8px;
+        }
+        .admin-page p {
+            color: #a0a0c0;
+            margin-bottom: 24px;
+        }
+        .admin-card {
+            background: #16213e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        .admin-card h2 {
+            font-size: 1.1rem;
+            color: #e0e0e0;
+            margin-bottom: 12px;
+        }
+        .admin-card .status {
+            font-size: 0.9rem;
+            color: #a0a0c0;
+            margin-bottom: 16px;
+        }
+        .admin-card .status.running {
+            color: #88c0ff;
+        }
+        .admin-card .status.done {
+            color: #80c080;
+        }
+        .admin-card .status.error {
+            color: #f08080;
+        }
+        .admin-card button {
+            background: #f0c040;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 24px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .admin-card button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .admin-card button:hover:not(:disabled) {
+            background: #f5d060;
+        }
+        .log-box {
+            background: #0a0a1a;
+            border: 1px solid #2a2a4a;
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.82rem;
+            color: #c0c0e0;
+            white-space: pre-wrap;
+            margin-top: 12px;
+        }
+        .log-box .info  { color: #c0c0e0; }
+        .log-box .ok    { color: #80c080; }
+        .log-box .warn  { color: #f0c040; }
+        .log-box .error { color: #f08080; }
+        .back-link {
+            display: inline-block;
+            margin-top: 16px;
+            color: #88c0ff;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-inner">
+            <a href="/" class="logo">SurveilFall</a>
+            <span style="color:#6a6a8a;font-size:0.85rem;">Admin</span>
+        </div>
+    </header>
+
+    <main class="admin-page">
+        <h1>Admin</h1>
+        <p>Download the latest default card data from Scryfall and import it into the database.</p>
+
+        <div class="admin-card">
+            <h2>Import Default Cards</h2>
+            <div id="import-status" class="status">Ready</div>
+            <button id="import-btn">Start Import</button>
+            <div id="import-log" class="log-box hidden"></div>
+        </div>
+
+        <a href="/" class="back-link">&larr; Back to search</a>
+    </main>
+
+    <script>
+        var importBtn = document.getElementById("import-btn");
+        var importStatus = document.getElementById("import-status");
+        var importLog = document.getElementById("import-log");
+
+        function log(msg, cls) {
+            importLog.classList.remove("hidden");
+            var line = document.createElement("div");
+            line.className = cls || "info";
+            line.textContent = msg;
+            importLog.appendChild(line);
+            importLog.scrollTop = importLog.scrollHeight;
+        }
+
+        function sleep(ms) {
+            return new Promise(function (r) { setTimeout(r, ms); });
+        }
+
+        importBtn.addEventListener("click", async function () {
+            importBtn.disabled = true;
+            importStatus.textContent = "Import running…";
+            importStatus.className = "status running";
+            importLog.innerHTML = "";
+            importLog.classList.add("hidden");
+
+            try {
+                // Kick off the background job (returns immediately).
+                var startRes = await fetch("/admin/import", { method: "POST" });
+                var startData = await startRes.json();
+                if (startData.alreadyRunning) {
+                    log("An import is already running — attaching to it…", "warn");
+                }
+
+                // Poll for progress. Each request is tiny and short-lived, so
+                // there is no long-lived connection that a proxy/browser can
+                // drop. Transient poll failures are ignored and retried.
+                var since = 0;
+                while (true) {
+                    await sleep(1000);
+                    var s;
+                    try {
+                        var statusRes = await fetch("/admin/import/status?since=" + since);
+                        s = await statusRes.json();
+                    } catch (e) {
+                        continue; // transient hiccup — keep polling
+                    }
+                    for (var i = 0; i < s.log.length; i++) {
+                        log(s.log[i].text, s.log[i].level);
+                    }
+                    since = s.nextIndex;
+
+                    if (s.done && !s.running) {
+                        if (s.error) {
+                            importStatus.textContent = "Import failed";
+                            importStatus.className = "status error";
+                        } else {
+                            importStatus.textContent = "Import complete!";
+                            importStatus.className = "status done";
+                        }
+                        break;
+                    }
+                }
+            } catch (err) {
+                log("Error: " + err.message, "error");
+                importStatus.textContent = "Import failed";
+                importStatus.className = "status error";
+            } finally {
+                importBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
