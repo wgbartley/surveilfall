@@ -12,6 +12,21 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 // ---------------------------------------------------------------------------
 
+// Request logging — emit one line per completed request with method, path,
+// status and duration. Registered first so it observes every request, and
+// routed to the console stream matching the status class.
+app.use((req, res, next) => {
+    const start = process.hrtime.bigint();
+    res.on("finish", () => {
+        const ms = Number(process.hrtime.bigint() - start) / 1e6;
+        const line = `${new Date().toISOString()} ${req.method} ${req.originalUrl} ${res.statusCode} ${ms.toFixed(1)}ms`;
+        if (res.statusCode >= 500) console.error(line);
+        else if (res.statusCode >= 400) console.warn(line);
+        else console.log(line);
+    });
+    next();
+});
+
 // Parse JSON request bodies
 app.use(express.json());
 
@@ -100,6 +115,20 @@ async function fetchCardData(ids) {
     }
     return map;
 }
+
+// ---------------------------------------------------------------------------
+// Health
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /healthz
+ * Lightweight liveness probe for container orchestration. Reports that the
+ * HTTP server is up; it deliberately does not touch the database so a transient
+ * DB blip doesn't cause the container to be killed.
+ */
+app.get("/healthz", (_req, res) => {
+    res.json({ status: "ok" });
+});
 
 // ---------------------------------------------------------------------------
 // Cards
@@ -956,9 +985,20 @@ app.get("/admin/import/status", requireAdmin, (req, res) => {
 // Error handler
 // ---------------------------------------------------------------------------
 
-app.use((err, _req, res, _next) => {
-    console.error("Unhandled error:", err);
+app.use((err, req, res, _next) => {
+    console.error(`${new Date().toISOString()} ERROR ${req.method} ${req.originalUrl} -`, err);
     sendError(res, 500, err.message || "Internal server error");
+});
+
+// Surface otherwise-invisible failures in the logs. An uncaught exception
+// leaves the process in an undefined state, so we log and exit — the container
+// restart policy brings it back cleanly.
+process.on("unhandledRejection", (reason) => {
+    console.error(`${new Date().toISOString()} UNHANDLED REJECTION -`, reason);
+});
+process.on("uncaughtException", (err) => {
+    console.error(`${new Date().toISOString()} UNCAUGHT EXCEPTION -`, err);
+    process.exit(1);
 });
 
 // ---------------------------------------------------------------------------
@@ -966,5 +1006,5 @@ app.use((err, _req, res, _next) => {
 // ---------------------------------------------------------------------------
 
 app.listen(PORT, () => {
-    console.log(`SurveilFall server listening on http://localhost:${PORT}`);
+    console.log(`${new Date().toISOString()} SurveilFall server listening on http://localhost:${PORT}`);
 });

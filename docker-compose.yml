@@ -1,0 +1,20 @@
+services:
+  surveilfall:
+    build: .
+    image: surveilfall
+    ports:
+      - "3000:3000"
+    # DB_HOST/DB_USER/DB_PASS/DB_NAME/DB_PORT, ADMIN_PASSWORD and USER_AGENT
+    # are read from .env at runtime (not baked into the image).
+    env_file:
+      - .env
+    environment:
+      PORT: "3000"
+    restart: unless-stopped
+    # Persist the import's scratch download dir off the container's writable
+    # layer (files are removed after each import; this just gives it room).
+    volumes:
+      - surveilfall-downloads:/app/downloads
+
+volumes:
+  surveilfall-downloads:

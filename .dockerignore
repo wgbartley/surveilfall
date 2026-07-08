@@ -1,0 +1,21 @@
+# Dependencies (reinstalled inside the image)
+node_modules
+npm-debug.log*
+
+# Secrets — provided at runtime, never baked into the image
+.env
+
+# Large local datasets that must not enter the build context
+data
+downloads
+
+# VCS / editor / meta
+.git
+.gitignore
+.vscode
+*.md
+
+# Docker files themselves
+Dockerfile
+.dockerignore
+docker-compose.yml
