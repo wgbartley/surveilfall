@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install production dependencies first so this layer is cached unless the
 # manifest changes. package-lock.json is committed, so use `npm ci`.
-COPY package.json package-lock.json ./
+COPY package.json ./
 RUN npm ci --omit=dev
 
 # Copy the application source. Large/secret paths (data/, downloads/, .env,
