@@ -30,8 +30,10 @@ app.use((req, res, next) => {
 // Parse JSON request bodies
 app.use(express.json());
 
-// Serve static frontend files from public/
-app.use(express.static(path.join(__dirname, "public")));
+// Serve static frontend files from public/. index:false so "/" falls through
+// to the route below, which injects cache-busting versions into asset URLs.
+const PUBLIC_DIR = path.join(__dirname, "public");
+app.use(express.static(PUBLIC_DIR, { index: false }));
 
 // Scryfall-compatible CORS headers
 app.use((_req, res, next) => {
@@ -54,6 +56,45 @@ function wrap(fn) {
         Promise.resolve(fn(req, res, next)).catch(next);
     };
 }
+
+/**
+ * Append a cache-busting `?v=<mtime>` to local CSS/JS asset URLs in an HTML
+ * string, based on each referenced file's last-modified time. Whenever a file
+ * changes, its version token changes and browsers re-fetch it instead of
+ * serving a stale cached copy. Missing assets are left untouched.
+ */
+function addAssetVersions(html) {
+    return html.replace(
+        /((?:href|src)=")(\/[^"?#]+\.(?:css|js))"/g,
+        (match, prefix, url) => {
+            try {
+                const stat = fs.statSync(path.join(PUBLIC_DIR, url));
+                const version = Math.floor(stat.mtimeMs).toString(36);
+                return `${prefix}${url}?v=${version}"`;
+            } catch (e) {
+                return match; // asset not found on disk — leave the URL as-is
+            }
+        }
+    );
+}
+
+/**
+ * Read an HTML file, apply optional [from, to] string replacements, and add
+ * cache-busting versions to its asset references.
+ */
+function renderHtmlPage(absPath, replacements) {
+    let html = fs.readFileSync(absPath, "utf-8");
+    if (replacements) {
+        for (const [from, to] of replacements) {
+            html = html.replace(from, to);
+        }
+    }
+    return addAssetVersions(html);
+}
+
+// Absolute paths to the HTML pages served with cache-busted assets.
+const INDEX_HTML = path.join(PUBLIC_DIR, "index.html");
+const ADMIN_HTML = path.join(__dirname, "views", "admin.html");
 
 /**
  * Return a Scryfall-style error response.
@@ -128,6 +169,15 @@ async function fetchCardData(ids) {
  */
 app.get("/healthz", (_req, res) => {
     res.json({ status: "ok" });
+});
+
+/**
+ * GET /
+ * Serve the main search page with cache-busted asset URLs. (express.static is
+ * configured with index:false so this handler owns "/".)
+ */
+app.get("/", (_req, res) => {
+    res.send(renderHtmlPage(INDEX_HTML));
 });
 
 // ---------------------------------------------------------------------------
@@ -422,7 +472,7 @@ app.get(
         );
 
         if (idRows.length === 0) {
-            return res.status(404).sendFile(path.join(__dirname, "public", "index.html"));
+            return res.status(404).send(renderHtmlPage(INDEX_HTML));
         }
 
         const [cardRows] = await pool.query(
@@ -430,7 +480,7 @@ app.get(
             [idRows[0].id]
         );
         if (cardRows.length === 0) {
-            return res.status(404).sendFile(path.join(__dirname, "public", "index.html"));
+            return res.status(404).send(renderHtmlPage(INDEX_HTML));
         }
 
         const card = JSON.parse(cardRows[0].data);
@@ -451,9 +501,10 @@ app.get(
             .map((d) => JSON.parse(d));
 
         // Serve the card detail page with card data + all printings embedded
-        let html = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf-8");
-        html = html.replace("var CARD_DATA = null;", "var CARD_DATA = " + JSON.stringify(card) + ";");
-        html = html.replace("var PRINTS_DATA = null;", "var PRINTS_DATA = " + JSON.stringify(prints) + ";");
+        const html = renderHtmlPage(INDEX_HTML, [
+            ["var CARD_DATA = null;", "var CARD_DATA = " + JSON.stringify(card) + ";"],
+            ["var PRINTS_DATA = null;", "var PRINTS_DATA = " + JSON.stringify(prints) + ";"],
+        ]);
         res.send(html);
     })
 );
@@ -621,7 +672,7 @@ app.get(
  * Serve the admin page.
  */
 app.get("/admin", requireAdmin, (req, res) => {
-    res.sendFile(path.join(__dirname, "views", "admin.html"));
+    res.send(renderHtmlPage(ADMIN_HTML));
 });
 
 /**
