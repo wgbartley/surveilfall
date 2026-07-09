@@ -258,6 +258,10 @@
 /* ------------------------------------------------------------------ */
 
 @media (max-width: 768px) {
+    .card-detail {
+        padding: 16px;
+    }
+
     .card-content {
         flex-direction: column;
         align-items: center;
@@ -266,5 +270,20 @@
     .card-image-column {
         flex: 0 0 auto;
         max-width: 280px;
+        width: 100%;
+    }
+
+    /* Stack the details and the printings sidebar vertically and let each
+       take the full width instead of squeezing side by side. */
+    .card-info-column {
+        flex-direction: column;
+        width: 100%;
+        gap: 16px;
+    }
+
+    .card-printings-sidebar {
+        flex: 1 1 auto;
+        max-width: none;
+        width: 100%;
     }
 }

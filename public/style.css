@@ -601,3 +601,70 @@ a:hover {
     color: #5a5a7a;
     border-top: 1px solid #2a2a4a;
 }
+
+/* ------------------------------------------------------------------ */
+/* Responsive                                                         */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+    .site-header {
+        padding: 0 16px;
+    }
+
+    .header-inner {
+        gap: 12px;
+    }
+
+    #main-content {
+        padding: 16px;
+    }
+
+    /* Turn the fixed right-hand list panel into a bottom sheet so it no
+       longer covers the content on narrow screens. */
+    .list-panel {
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-height: 65vh;
+        border-left: none;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .list-entries {
+        max-height: 45vh;
+    }
+}
+
+@media (max-width: 560px) {
+    /* Let the search bar drop onto its own full-width row under the logo. */
+    .header-inner {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 10px 0;
+    }
+
+    .search-bar {
+        order: 3;
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    .results-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .results-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    /* Two comfortable columns on phones instead of a single wide one. */
+    .card-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 12px;
+    }
+}
