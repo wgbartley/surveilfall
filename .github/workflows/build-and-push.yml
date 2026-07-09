@@ -2,10 +2,8 @@ name: Build and Publish to GHCR
 
 on:
   push:
-    branches: ["master"]
-  # Optional: build on version tags
-  tags:
-    - "v*"
+    branches:
+      - master
   workflow_dispatch:
 
 jobs:
