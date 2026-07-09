@@ -8,7 +8,7 @@ WORKDIR /app
 # Install production dependencies first so this layer is cached unless the
 # manifest changes. package-lock.json is committed, so use `npm ci`.
 COPY package.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copy the application source. Large/secret paths (data/, downloads/, .env,
 # node_modules) are excluded via .dockerignore.
