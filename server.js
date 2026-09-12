@@ -839,19 +839,21 @@ function startImportJob() {
                 throw new Error("No default_cards entry found in bulk data catalog.");
             }
 
-            send("info", "Found default_cards (" + (defaultItem.size / 1e6).toFixed(1) + " MB)");
+            send("info", "Found default_cards (" + (defaultItem.compressed_size / 1e6).toFixed(1) + " MB)");
 
             // 3. Download to a temp file
+            // Scryfall serves bulk files as gzip-compressed JSONL under jsonl_download_uri
+            // (the older plain-JSON download_uri/size fields were removed from their API).
             const downloadsDir = path.join(__dirname, "downloads");
             fs.mkdirSync(downloadsDir, { recursive: true });
-            const filename = path.basename(new URL(defaultItem.download_uri).pathname);
+            const filename = path.basename(new URL(defaultItem.jsonl_download_uri).pathname);
             const destPath = path.join(downloadsDir, filename);
 
-            send("info", "Downloading from " + defaultItem.download_uri + " …");
+            send("info", "Downloading from " + defaultItem.jsonl_download_uri + " …");
             send("info", "Saving to " + filename + " …");
             // Quick DNS check before attempting download
             const dns = require("dns");
-            const urlObj = new URL(defaultItem.download_uri);
+            const urlObj = new URL(defaultItem.jsonl_download_uri);
             try {
                 const addresses = await new Promise((resolve, reject) => {
                     dns.resolve(urlObj.hostname, (err, addrs) => {
@@ -863,7 +865,7 @@ function startImportJob() {
             } catch (err) {
                 send("error", "DNS resolution failed for " + urlObj.hostname + ": " + err.code);
             }
-            await downloadFile(defaultItem.download_uri, destPath, (received, total) => {
+            await downloadFile(defaultItem.jsonl_download_uri, destPath, (received, total) => {
                 const mb = (received / 1e6).toFixed(1);
                 const pct = total ? " (" + ((received / total) * 100).toFixed(1) + "%)" : "";
                 send("info", "Downloaded " + mb + " MB" + pct + "…");
@@ -908,9 +910,11 @@ function startImportJob() {
             `);
             send("ok", "Tables created.");
 
-            // 5. Stream the JSON file and insert in batches
+            // 5. Stream the JSONL file and insert in batches. The downloaded file is
+            // gzip-compressed (Scryfall's jsonl_download_uri), so decompress on the fly.
+            const zlib = require("zlib");
             const rl = readline.createInterface({
-                input: fs.createReadStream(destPath),
+                input: fs.createReadStream(destPath).pipe(zlib.createGunzip()),
                 crlfDelay: Infinity,
             });
 

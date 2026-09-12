@@ -2,6 +2,7 @@
 
 const fs = require("fs");
 const readline = require("readline");
+const zlib = require("zlib");
 
 const pool = require("./db");
 
@@ -56,8 +57,14 @@ async function main() {
 
     log(`Importing card data from: ${filePath}`);
 
+    // Scryfall's bulk files are now gzip-compressed JSONL (.jsonl.gz); decompress
+    // on the fly if the extension indicates that, otherwise read the file as-is.
+    let input = fs.createReadStream(filePath);
+    if (filePath.endsWith(".gz")) {
+        input = input.pipe(zlib.createGunzip());
+    }
     const rl = readline.createInterface({
-        input: fs.createReadStream(filePath),
+        input,
         crlfDelay: Infinity,
     });
 

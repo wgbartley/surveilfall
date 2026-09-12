@@ -72,10 +72,10 @@ function downloadFile(url, destPath) {
 
 /**
  * Given a Scryfall bulk-data item, derive a local filename from the
- * download_uri (e.g. "oracle-cards-20260609090224.json").
+ * jsonl_download_uri (e.g. "oracle-cards-20260609090224.jsonl.gz").
  */
 function localFilename(item) {
-    return path.basename(new URL(item.download_uri).pathname);
+    return path.basename(new URL(item.jsonl_download_uri).pathname);
 }
 
 async function main() {
@@ -97,7 +97,7 @@ async function main() {
     for (const item of items) {
         const filename = localFilename(item);
         const destPath = path.join(DOWNLOADS_DIR, filename);
-        const expectedSize = item.size;
+        const expectedSize = item.compressed_size;
 
         if (fs.existsSync(destPath)) {
             const diskSize = fs.statSync(destPath).size;
@@ -112,7 +112,7 @@ async function main() {
 
         console.log(`[DL]    ${item.type} — ${filename} (${(expectedSize / 1e6).toFixed(1)} MB)`);
         try {
-            await downloadFile(item.download_uri, destPath);
+            await downloadFile(item.jsonl_download_uri, destPath);
             console.log(`[DONE]  ${item.type}`);
         } catch (err) {
             console.error(`[FAIL]  ${item.type}: ${err.message}`);
